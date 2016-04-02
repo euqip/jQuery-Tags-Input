@@ -88,8 +88,9 @@ option to false.
 	$(selector).tagsInput({
 	   'autocomplete_url': url_to_autocomplete_api,
 	   'autocomplete': { option: value, option: value},
-	   'height':'100px',
-	   'width':'300px',
+		 'defaultText':'Add a tag',
+		 'removetagTitle':'Remove tag',
+		 'sortedTags' :"none", // sort array ASC, DESC, None
 	   'interactive':true,
 	   'defaultText':'add a tag',
 	   'onAddTag':callback_function,
