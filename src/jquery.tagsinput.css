@@ -2,7 +2,6 @@ div.tagsinput {
   border:1px solid #CCC;
   background: #FFF;
   padding:5px;
-  width:300px;
   height:100px;
   overflow-y: auto;}
 div.tagsinput span.tag {
@@ -11,27 +10,23 @@ div.tagsinput span.tag {
   -webkit-border-radius:2px;
   display: block;
   float: left;
-  padding: 5px;
+  padding: 2px;
   text-decoration:none;
   background: #cde69c;
   color: #638421;
-  margin-right: 5px;
-  margin-bottom:5px;font-family: helvetica;
-  font-size:13px;
+  margin-right: 3px;
+  margin-bottom:3px;
 }
 div.tagsinput span.tag a {
   font-weight: bold;
   color: #82ad2b;
   text-decoration:none;
-  font-size: 11px;
  }
 div.tagsinput input {
   width:100%;
   margin:0px;
   cursor: pointer;
   text-align: center;
-  font-family: helvetica;
-  font-size: 13px;
   border:1px solid transparent;
   padding:5px;
   background: transparent;
