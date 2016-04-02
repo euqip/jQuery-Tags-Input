@@ -16,8 +16,10 @@
 
 (function($) {
 
-	var delimiter = new Array();
-	var tags_callbacks = new Array();
+	var delimiter = new Array(),
+		titletext = new Array(),
+		sortOrder = new Array(),
+		tags_callbacks = [];
 	$.fn.doAutosize = function(o){
 	    var minWidth = $(this).data('minwidth'),
 	        maxWidth = $(this).data('maxwidth'),
@@ -73,41 +75,52 @@
     input.css('width', minWidth);
   };
 
+	$.fn.newTag = function(value,options) {
+	    options = jQuery.extend({focus:false,callback:true},options);
+	      value = jQuery.trim(value);
+	      var id = $(this).attr('id'),
+	      skipTag = false;
+				// get th original tags list
+	      var tagslist = $(this).val().split(delimiter[id]);
+				tagslist = tagslist[0] === ''	 ? [] : tagslist;
+	      //check uniqueness
+	      if (options.unique) {
+	        skipTag = $(this).tagExist(value);
+	        if(skipTag === true) {
+	            //Marks fake input as not_valid to let styling it
+	              $('#'+id+'_tag').addClass('not_valid');
+	          }
+	      }
+	      if (value !='' && skipTag != true) {
+	        tagslist.push(value);
+	      }
+				// change the original tags list to add new one
+				$.fn.tagsInput.updateTagsField($(this),tagslist);
+				//var str = tagslist.join(options.delimiter[id])
+				var str = tagslist.join(',')
+				// display tags list
+		    $.fn.tagsInput.importTags($(this),str)
+		}
+
+
 	$.fn.addTag = function(value,options) {
 			options = jQuery.extend({focus:false,callback:true},options);
 			this.each(function() {
 				var id = $(this).attr('id');
-
 				var tagslist = $(this).val().split(delimiter[id]);
-				if (tagslist[0] == '') {
-					tagslist = new Array();
-				}
+				if (value !== '') {
+          $('<span>').addClass('tag').append(
+              $('<span>').text(value).append('&nbsp;'),
+              $('<a>', {
+                  href  : '#',
+                  title : options.titletext,
+                  text  : 'X'
+              }).click(function () {
+                  return $('#' + id).removeTag(escape(value));
+              })
+          ).insertBefore('#' + id + '_addTag');
 
-				value = jQuery.trim(value);
-
-				if (options.unique) {
-					var skipTag = $(this).tagExist(value);
-					if(skipTag == true) {
-					    //Marks fake input as not_valid to let styling it
-    				    $('#'+id+'_tag').addClass('not_valid');
-    				}
-				} else {
-					var skipTag = false;
-				}
-
-				if (value !='' && skipTag != true) {
-                    $('<span>').addClass('tag').append(
-                        $('<span>').text(value).append('&nbsp;&nbsp;'),
-                        $('<a>', {
-                            href  : '#',
-                            title : 'Removing tag',
-                            text  : 'x'
-                        }).click(function () {
-                            return $('#' + id).removeTag(escape(value));
-                        })
-                    ).insertBefore('#' + id + '_addTag');
-
-					tagslist.push(value);
+					//tagslist.push(value);
 
 					$('#'+id+'_tag').val('');
 					if (options.focus) {
@@ -115,9 +128,6 @@
 					} else {
 						$('#'+id+'_tag').blur();
 					}
-
-					$.fn.tagsInput.updateTagsField(this,tagslist);
-
 					if (options.callback && tags_callbacks[id] && tags_callbacks[id]['onAddTag']) {
 						var f = tags_callbacks[id]['onAddTag'];
 						f.call(this, value);
@@ -136,20 +146,24 @@
 		};
 
 	$.fn.removeTag = function(value) {
+			var str = '';
 			value = unescape(value);
 			this.each(function() {
 				var id = $(this).attr('id');
-
-				var old = $(this).val().split(delimiter[id]);
-
-				$('#'+id+'_tagsinput .tag').remove();
+				// existing array of tags
+				var old = $(this).val().split(delimiter[id])
+				//remove all existing tags
 				str = '';
+				$('#'+id+'_tagsinput .tag').remove();
+				// build the nex comma separated string, without the deleted item
 				for (i=0; i< old.length; i++) {
 					if (old[i]!=value) {
 						str = str + delimiter[id] +old[i];
 					}
 				}
-
+				//store the new array as new value
+				$(this).val(str);
+				// display the residual items
 				$.fn.tagsInput.importTags(this,str);
 
 				if (tags_callbacks[id] && tags_callbacks[id]['onRemoveTag']) {
@@ -177,10 +191,10 @@
 	$.fn.tagsInput = function(options) {
     var settings = jQuery.extend({
       interactive:true,
-      defaultText:'add a tag',
+			defaultText:'Add a tag',
+			removetagTitle:'Remove tag',
+			sortedTags :"none", // stort array ASC, DESC, None
       minChars:0,
-      width:'300px',
-      height:'100px',
       autocomplete: {selectFirst: false },
       hide:true,
       delimiter: ',',
@@ -190,9 +204,8 @@
       autosize: true,
       comfortZone: 20,
       inputPadding: 6*2
-    },options);
-
-    	var uniqueIdCounter = 0;
+    },options),
+    	uniqueIdCounter = 0;
 
 		this.each(function() {
          // If we have already initialized the field, do not do it again
@@ -220,27 +233,29 @@
 			},settings);
 
 			delimiter[id] = data.delimiter;
+			titletext[id] = data.removetagTitle;
+			sortOrder[id] = data.sortedTags;
 
 			if (settings.onAddTag || settings.onRemoveTag || settings.onChange) {
-				tags_callbacks[id] = new Array();
+				tags_callbacks[id] = [];
 				tags_callbacks[id]['onAddTag'] = settings.onAddTag;
 				tags_callbacks[id]['onRemoveTag'] = settings.onRemoveTag;
 				tags_callbacks[id]['onChange'] = settings.onChange;
 			}
 
-			var markup = '<div id="'+id+'_tagsinput" class="tagsinput"><div id="'+id+'_addTag">';
+			var markup = '<div id="' + id + '_tagsinput" class="tagsinput form-control"><div id="' + id + '_addTag">';
 
 			if (settings.interactive) {
-				markup = markup + '<input id="'+id+'_tag" value="" data-default="'+settings.defaultText+'" />';
+				markup += '<input id="' + id +'_tag" value="" data-default="' + settings.defaultText + '" />';
 			}
 
-			markup = markup + '</div><div class="tags_clear"></div></div>';
+			markup += '</div><div class="tags_clear"></div></div>';
 
 			$(markup).insertAfter(this);
 
-			$(data.holder).css('width',settings.width);
-			$(data.holder).css('min-height',settings.height);
-			$(data.holder).css('height',settings.height);
+			//$(data.holder).css('width',settings.width);
+			//$(data.holder).css('min-height',settings.height);
+			//$(data.holder).css('height',settings.height);
 
 			if ($(data.real_input).val()!='') {
 				$.fn.tagsInput.importTags($(data.real_input),$(data.real_input).val());
@@ -255,7 +270,7 @@
 				});
 
 				$(data.fake_input).bind('focus',data,function(event) {
-					if ($(event.data.fake_input).val()==$(event.data.fake_input).attr('data-default')) {
+					if ($(event.data.fake_input).val() == $(event.data.fake_input).attr('data-default')) {
 						$(event.data.fake_input).val('');
 					}
 					$(event.data.fake_input).css('color','#000000');
@@ -277,7 +292,7 @@
 					} else if (jQuery.ui.autocomplete !== undefined) {
 						$(data.fake_input).autocomplete(autocomplete_options);
 						$(data.fake_input).bind('autocompleteselect',data,function(event,ui) {
-							$(event.data.real_input).addTag(ui.item.value,{focus:true,unique:(settings.unique)});
+							$(event.data.real_input).newTag(ui.item.value,{focus:true,unique:(settings.unique)});
 							return false;
 						});
 					}
@@ -290,7 +305,7 @@
 							var d = $(this).attr('data-default');
 							if ($(event.data.fake_input).val()!='' && $(event.data.fake_input).val()!=d) {
 								if( (event.data.minChars <= $(event.data.fake_input).val().length) && (!event.data.maxChars || (event.data.maxChars >= $(event.data.fake_input).val().length)) )
-									$(event.data.real_input).addTag($(event.data.fake_input).val(),{focus:true,unique:(settings.unique)});
+									$(event.data.real_input).newTag($(event.data.fake_input).val(),{focus:true,unique:(settings.unique)});
 							} else {
 								$(event.data.fake_input).val($(event.data.fake_input).attr('data-default'));
 								$(event.data.fake_input).css('color',settings.placeholderColor);
@@ -304,7 +319,7 @@
 					if (_checkDelimiter(event)) {
 					    event.preventDefault();
 						if( (event.data.minChars <= $(event.data.fake_input).val().length) && (!event.data.maxChars || (event.data.maxChars >= $(event.data.fake_input).val().length)) )
-							$(event.data.real_input).addTag($(event.data.fake_input).val(),{focus:true,unique:(settings.unique)});
+							$(event.data.real_input).newTag($(event.data.fake_input).val(),{focus:true,unique:(settings.unique)});
 					  	$(event.data.fake_input).resetAutosize(settings);
 						return false;
 					} else if (event.data.autosize) {
@@ -348,11 +363,35 @@
 	};
 
 	$.fn.tagsInput.importTags = function(obj,val) {
-		$(obj).val('');
-		var id = $(obj).attr('id');
-		var tags = val.split(delimiter[id]);
-		for (i=0; i<tags.length; i++) {
-			$(obj).addTag(tags[i],{focus:false,callback:false});
+		//$(obj).val('');
+		// create a Tags array
+		var i,
+			id = $(obj).attr('id'),
+			tags = val.split(delimiter[id]);
+		// this function will sort ASC, no accented chars admitted
+		console.log(sortOrder[id]);
+		switch (sortOrder[id]){
+			case 'asc':
+			case 'ASC':
+				tags.sort(function(a, b) {
+						return a.localeCompare(b, {sensitivity:'base'});
+				});
+				break;
+			case 'desc':
+			case 'DESC':
+				tags.sort(function(a, b) {
+					return a.localeCompare(b, {sensitivity:'base'});
+				});
+				tags.reverse();
+				break;
+			default:
+		}
+		// remove all spans under tags id with class tag
+		$('#'+id+'_tagsinput .tag').remove();
+		// rebuild tags in sort order
+		for (i = 0; i < tags.length; i++) {
+			//look here
+			$(obj).addTag(tags[i],{focus:false, callback:false, titletext:titletext[id]});
 		}
 		if(tags_callbacks[id] && tags_callbacks[id]['onChange'])
 		{
